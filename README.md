@@ -32,4 +32,4 @@ display stopped
 ```
 
 #### Run scrapper
-```python scrape.py -headless``` 
+```python scrape.py xvfb``` 
