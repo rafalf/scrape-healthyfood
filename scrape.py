@@ -8,6 +8,9 @@ import logging
 import logging.config
 import json
 import time
+import xvfbwrapper
+import sys
+
 
 LOGGING_CONFIG = {
     'formatters': {
@@ -76,15 +79,28 @@ def get_logger():
 
 
 @contextmanager
-def get_driver(headless):
+def get_driver(arg):
+
+    print('[INFO] arg mode: ', arg)
+
+    if arg == "xvfb":
+        display = xvfbwrapper.Xvfb()
+        display.start()
+        print('[INFO] is_headless_xvfb: display started')
 
     chromeOptions = webdriver.ChromeOptions()
 
     chromeOptions.add_argument("--disable-extensions")
     chromeOptions.add_argument("--disable-infobars")
-    if headless:
+    chromeOptions.add_argument("--start-maximized")
+    if arg == "xvfb":
         chromeOptions.add_argument("--no-sandbox")
         chromeOptions.add_argument("--disable-gpu")
+    elif arg == "--headless":
+        chromeOptions.add_argument("--no-sandbox")
+        chromeOptions.add_argument("--disable-gpu")
+        chromeOptions.add_argument("--headless")
+
     if platform == 'darwin':
         driver = webdriver.Chrome(chrome_options=chromeOptions)
     elif platform == 'linux' or platform == 'linux2':
@@ -95,6 +111,9 @@ def get_driver(headless):
 
     yield driver
     driver.quit()
+
+    if arg == "xvfb":
+        display.stop()
 
 
 def get_containers(driver, logger):
@@ -130,18 +149,15 @@ def get_containers(driver, logger):
     return all_items_containers
 
 
-# 7:30
-def run():
-
-    headless = False
+def run(arg):
 
     urls = read_urls()
     logger = get_logger()
 
-    with get_driver(headless) as driver:
+    with get_driver(arg) as driver:
 
         driver.get(urls[0][0])
-        driver.maximize_window()
+        # driver.maximize_window()
 
         actions = WebActions(driver, logger)
 
@@ -341,5 +357,9 @@ def run():
 
 if __name__ == "__main__":
 
+    arg = None
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+
     while read_urls():
-        run()
+        run(arg)
