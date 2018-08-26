@@ -1,4 +1,4 @@
 .idea
-log.log
+log.*
 *.pyc
 log.log.1

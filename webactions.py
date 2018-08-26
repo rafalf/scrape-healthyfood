@@ -36,6 +36,9 @@ class WebActions:
     def switch_to_iframe(self, id_frame):
         WebDriverWait(self.driver, 30).until(EC.frame_to_be_available_and_switch_to_it(id_frame))
 
+    def switch_to_default_content(self):
+        self.driver.switch_to_default_content()
+
     def get_element_by_css(self, selector_css, wait_time=30):
 
         try:
@@ -81,7 +84,7 @@ class WebActions:
             try:
                 return element.find_element_by_css_selector(selector_css)
             except Exception as err:
-                self.logger.warning("%s on get_element_concatenate", err.__class__.__name__)
+                self.logger.info("%s: get_element_concatenate ... sleep 5s and retry", err.__class__.__name__)
                 time.sleep(5)
 
         self.logger.error("get_element_concatenate failed on selector: %s", selector_css)
@@ -319,4 +322,9 @@ class WebActions:
     def is_alert_present(self):
         if EC.alert_is_present:
             return True
+
+    def clear_browser_storage(self):
+        self.driver.execute_script('window.sessionStorage.clear();')
+        self.driver.execute_script('window.localStorage.clear();')
+        self.logger.info("sessionStorage and localStorage storage cleared")
 

@@ -10,6 +10,7 @@ import json
 import time
 import xvfbwrapper
 import sys
+import codecs
 
 
 LOGGING_CONFIG = {
@@ -43,6 +44,7 @@ LOGGING_CONFIG = {
 }
 
 INPUT_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "urls.csv")
+OUTPUT_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 BASE_DIR = "download chrome driver for windows and fix base dir"
 
 STORES = {
@@ -54,6 +56,7 @@ STORES = {
 
 LOADER = ".Placeholder-grayAreaAnimator-cover"
 CAROUSEL = ".Carousel"
+GROUP = ".AddToBasketPage-group .AddToBasketPage-group-title-text span"
 SCRAPE_ATTEMPTS = 3
 ITEMS_ON_CAROUSEL = 20
 
@@ -120,7 +123,7 @@ def get_containers(driver, logger):
 
     actions = WebActions(driver, logger)
 
-    groups = ".AddToBasketPage-group .AddToBasketPage-group-title-text span"
+    groups = GROUP
     actions.wait_for_element_by_css(groups, visible=True)
     groups_all = actions.get_all_elements_by_css(groups)
 
@@ -175,7 +178,7 @@ def run(arg):
 
         recipe = {}
 
-        for url in urls:
+        for url_idx, url in enumerate(urls):
 
             for i in range(SCRAPE_ATTEMPTS):
 
@@ -189,16 +192,30 @@ def run(arg):
 
                     recipe['recipe_url'] = url[0]
 
-                    actions.click_by_css(".whisk-widget-button-add-to-basket", True)
+                    actions.wait_for_element_by_css("iframe[src*='add-to-list-healthyfoodcoukbuyonline-widget.html']")
+                    actions.switch_to_iframe(driver.find_elements_by_tag_name("iframe")[1])
+                    actions.click_by_css(".Button", True)
+                    actions.switch_to_default_content()
 
                     # wait for iframe and switch to it
-                    actions.wait_for_element_by_css(".recipe-template-default[style=\"overflow: hidden;\"]")
-                    actions.wait_for_element_by_css("#whisk_fullscreen_container", visible=True)
+                    # actions.wait_for_element_by_css(".recipe-template-default[style=\"overflow: hidden;\"]")
+                    actions.wait_for_element_by_css("iframe._10eWP3cjZMNSs-4dSOAX9L", visible=True)
 
                     time.sleep(1)
-                    actions.switch_to_iframe("whisk_fullscreen_container")
+                    actions.switch_to_iframe(driver.find_element_by_css_selector("iframe._10eWP3cjZMNSs-4dSOAX9L"))
 
-                    actions.wait_for_element_not_present_by_css(LOADER, 10)
+                    actions.wait_for_element_not_present_by_css(LOADER, 30)
+
+                    if not actions.is_element_by_css(GROUP, 5):
+                        logger.info("GROUP not present")
+                        # inconsistent
+                        # usually a shop is selected already
+                        # but sometimes have got to select a shop
+                        if actions.is_element_by_css(".SelectInventoryPage-inventory .Button", 5):
+                            actions.click_by_css(".SelectInventoryPage-inventory .Button")
+                            actions.wait_for_element_not_present_by_css(LOADER, 30)
+                        else:
+                            logger.info("neither select from SHOPS list button.. will try GROUP again")
 
                     init_all_items_containers = get_containers(driver, logger)
                     logger.info("collected total items: %s", len(init_all_items_containers))
@@ -267,7 +284,8 @@ def run(arg):
                                 logger.info("init found items on carousel: %s", traverse_range)
                                 logger.info("max ITEMS_ON_CAROUSEL set to: %s", ITEMS_ON_CAROUSEL)
 
-                                arrow_right = "div:not(.Carousel-arrow--disabled)>.Carousel-arrow-icon--right"
+                                # arrow_right = "div:not(.Carousel-arrow--disabled)>.Carousel-arrow-icon--right"
+                                arrow_right = "div.Carousel-arrow--right:not(.Carousel-arrow--disabled)"
                                 if actions.is_element_by_css(arrow_right, 3):
                                     logger.info("arrow-icon right found!")
                                     traverse_range = ITEMS_ON_CAROUSEL
@@ -309,7 +327,7 @@ def run(arg):
 
                                     temp_product['url'] = actions.get_element_concatenate(item_on, ".Link-reference").get_attribute("href")
 
-                                    image_url = actions.get_element_concatenate(item_on, ".ProductSwap-item>img").get_attribute("src")
+                                    image_url = actions.get_element_concatenate(item_on, ".ProductSwap-item img").get_attribute("src")
                                     temp_product['image_url'] = image_url
 
                                     products[idx].append(temp_product)
@@ -342,7 +360,14 @@ def run(arg):
 
                     logger.info("recipe json: \n%s", json.dumps(recipe, indent=4, sort_keys=True))
 
+                    try:
+                        with codecs.open(os.path.join(OUTPUT_JSON, "file_{}.json".format(url_idx)), "w", "utf-8") as fh:
+                            fh.write(json.dumps(recipe, indent=4, sort_keys=True))
+                    except Exception as err:
+                        logger.error("%s: error writing json file: %s", err.__class__.__name__, err)
+
                     set_status(url[0], "processed")
+                    actions.clear_browser_storage()
 
                     break
 

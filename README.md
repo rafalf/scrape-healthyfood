@@ -18,7 +18,7 @@ docker run -it scraper /bin/bash
 #### Run scrapper
 ```python scrape.py --headless```
 
-## xvfb
+#### xvfb (optionally to use but aint working as of today)
 
 #### Test if xvfb works
 * ```cd /usr/local/scraper```
@@ -31,5 +31,5 @@ Google
 display stopped
 ```
 
-#### Run scrapper
+#### Run scrapper with xvfb
 ```python scrape.py xvfb``` 
